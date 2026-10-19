@@ -1,0 +1,120 @@
+// Eventer data model. The matching SQL lives in the project's migrations
+// folder (applied to the built-in Postgres through the platform).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventType {
+  HACKATHON
+  WORKSHOP
+  MEETUP
+  CONFERENCE
+}
+
+enum EventMode {
+  IN_PERSON
+  ONLINE
+  HYBRID
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  WAITLISTED
+  CANCELLED
+  CHECKED_IN
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  fullName       String
+  phoneNumber    String?
+  university     String?
+  degreeProgram  String?
+  graduationYear Int?
+  rollNumber     String?
+  city           String?
+  techStack      String[]       @default([])
+  registrations  Registration[]
+  ledTeams       Team[]         @relation("TeamLeader")
+  createdAt      DateTime       @default(now())
+}
+
+model Organizer {
+  id           String  @id @default(cuid())
+  name         String
+  slug         String  @unique
+  logoUrl      String?
+  verified     Boolean @default(false)
+  contactEmail String?
+  websiteUrl   String?
+  events       Event[]
+}
+
+model Event {
+  id                   String         @id @default(cuid())
+  organizerId          String
+  organizer            Organizer      @relation(fields: [organizerId], references: [id])
+  title                String
+  slug                 String         @unique
+  description          String
+  type                 EventType
+  mode                 EventMode
+  venueName            String?
+  venueAddress         String?
+  city                 String
+  startTime            DateTime
+  endTime              DateTime
+  registrationDeadline DateTime
+  capacity             Int?
+  pricePkr             Int            @default(0)
+  prizePool            String?
+  perks                String[]       @default([])
+  eligibility          String?
+  externalUrl          String?
+  tags                 String[]       @default([])
+  isPublished          Boolean        @default(true)
+  isFeatured           Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  registrations        Registration[]
+  teams                Team[]
+
+  @@index([city])
+  @@index([startTime])
+}
+
+model Registration {
+  id          String             @id @default(cuid())
+  eventId     String
+  event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId      String?
+  team        Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  status      RegistrationStatus @default(CONFIRMED)
+  ticketToken String             @unique
+  checkedInAt DateTime?
+  createdAt   DateTime           @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model Team {
+  id            String         @id @default(cuid())
+  eventId       String
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name          String
+  inviteCode    String         @unique
+  leaderId      String
+  leader        User           @relation("TeamLeader", fields: [leaderId], references: [id])
+  maxMembers    Int            @default(4)
+  createdAt     DateTime       @default(now())
+  registrations Registration[]
+}
